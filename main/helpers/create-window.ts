@@ -1,7 +1,7 @@
 import {
     screen,
     BrowserWindow,
-    BrowserWindowConstructorOptions,
+    type BrowserWindowConstructorOptions,
 } from 'electron'
 import Store from 'electron-store'
 import path from 'node:path'

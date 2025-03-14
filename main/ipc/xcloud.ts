@@ -1,5 +1,5 @@
 import IpcBase from './base'
-import Application from '../application'
+import type Application from '../application'
 import TitleManager from '../helpers/titlemanager'
 
 interface getTitleArgs {

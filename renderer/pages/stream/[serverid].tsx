@@ -8,29 +8,106 @@ import StreamComponent from '../../components/ui/streamcomponent'
 import StreamPreload from '../../components/ui/streampreload'
 import Ipc from '../../lib/ipc'
 
+// Define interface for buffer parameters
+interface BufferParams {
+    jitterBufferMinimumDelay: number;
+    jitterBufferTargetDelay: number;
+}
+
 function Stream() {
     const router = useRouter()
     const { settings } = useSettings()
 
     let streamStateInterval
     let keepaliveInterval
+    let memoryManagementInterval
 
     const [xPlayer, setxPlayer] = React.useState(undefined)
     const [sessionId, setSessionId] = React.useState('')
     const [queueTime, setQueueTime] = React.useState(0)
 
+    // Function for WebRTC optimization
+    function optimizeWebRTCSettings(player) {
+        // Get RTCPeerConnection to adjust buffer settings
+        if (player && player._webrtcClient && player._webrtcClient._peerConnection) {
+            const pc = player._webrtcClient._peerConnection
+            
+            // Set optimal jitter buffer delays based on platform
+            try {
+                // Reduce jitter buffer delay to improve responsiveness
+                const params: BufferParams = {
+                    jitterBufferMinimumDelay: 0.2, // Default 200ms minimum delay
+                    jitterBufferTargetDelay: 0.3  // Default 300ms target delay
+                }
+                
+                if (navigator.userAgent.includes('Mac')) {
+                    // Optimized for macOS, especially M1/M2
+                    params.jitterBufferMinimumDelay = 0.1 // 100ms minimum delay
+                    params.jitterBufferTargetDelay = 0.2 // 200ms target delay
+                }
+                
+                // Apply settings to each receiver
+                pc.getReceivers().forEach(receiver => {
+                    if (receiver.track.kind === 'video' && typeof receiver.jitterBufferDelayHint !== 'undefined') {
+                        console.log('Setting jitter buffer delay hint to:', params.jitterBufferTargetDelay)
+                        receiver.jitterBufferDelayHint = params.jitterBufferTargetDelay
+                    }
+                    
+                    // If parameters can be modified, set them directly
+                    if (receiver.setParameters && receiver.getParameters) {
+                        const parameters = receiver.getParameters()
+                        if (parameters.jitterBufferMinimumDelay !== undefined) {
+                            parameters.jitterBufferMinimumDelay = params.jitterBufferMinimumDelay
+                            parameters.jitterBufferTargetDelay = params.jitterBufferTargetDelay
+                            receiver.setParameters(parameters)
+                        }
+                    }
+                })
+                
+                console.log('WebRTC optimization complete')
+            } catch (error) {
+                console.error('Error optimizing WebRTC parameters:', error)
+            }
+        }
+    }
+
     React.useEffect(() => {
         // Detect stream type and title / server id
         let streamType = 'home'
         let serverId = router.query.serverid
-        if((router.query.serverid as string).substr(0, 6) === 'xcloud'){
+        if((router.query.serverid as string)?.substr(0, 6) === 'xcloud'){
             streamType = 'cloud'
             serverId = (router.query.serverid as string).substr(7)
         }
 
+        // Detect platform for optimizations
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+        const isM1 = isMac && navigator.userAgent.indexOf('AppleWebKit') >= 0
+
         if(xPlayer !== undefined){
             document.getElementById('streamComponentHolder').innerHTML = '<div id="streamComponent" class="size_'+settings.video_size+'"></div>'
             xPlayer.bind()
+
+            // Set optimized configuration based on platform
+            if (isMac) {
+                // Mac-specific optimizations
+                xPlayer.setCodecPreferences('video/H264', { 
+                    profiles: ['4d'], // Force high profile for better quality
+                })
+                
+                // Apply M1-specific optimizations
+                if (isM1) {
+                    console.log('Applying M1-specific optimizations')
+                    // Apply buffer and latency optimizations
+                    optimizeWebRTCSettings(xPlayer)
+                    
+                    // Request smaller buffer size for M1
+                    if (xPlayer._streamConfig) {
+                        xPlayer._streamConfig.jitterBufferTargetDelay = 200 // 200ms
+                        xPlayer._streamConfig.jitterBufferMinimumDelay = 100 // 100ms
+                    }
+                }
+            }
 
             // Set bitrates & video codec profiles
             if((streamType === 'cloud') ? settings.xcloud_bitrate : settings.xhome_bitrate > 0){
@@ -40,6 +117,13 @@ function Stream() {
             if(settings.video_profiles.length > 0){
                 xPlayer.setCodecPreferences('video/H264', { profiles: settings.video_profiles || [] }) // 4d = high, 42e = mid, 420 = low
             }
+
+            // Add memory management enhancements
+            memoryManagementInterval = setInterval(() => {
+                if (typeof global !== 'undefined' && typeof global.gc === 'function') {
+                    global.gc() // Force garbage collection if available
+                }
+            }, 60000) // Every minute
 
             // Stream is ready so we start the player
             xPlayer.setControllerRumble(settings.controller_vibration)
@@ -192,7 +276,7 @@ function Stream() {
                             }
                             console.log('Full stream error:', session.errorDetails)
                             onDisconnect()
-                            xPlayer.close()
+                            if (xPlayer) xPlayer.close()
                             break
 
                         case 'queued':
@@ -201,8 +285,6 @@ function Stream() {
                             if(queueTime === 0){
                                 setQueueTime(session.waitingTimes.estimatedTotalWaitTimeInSeconds)
                                 console.log('Setting queue to:', session.waitingTimes.estimatedTotalWaitTimeInSeconds)
-
-                                
                             }
                             break
                     }
@@ -225,6 +307,10 @@ function Stream() {
 
             if(streamStateInterval){
                 clearInterval(streamStateInterval) 
+            }
+
+            if (memoryManagementInterval) {
+                clearInterval(memoryManagementInterval)
             }
         }
     })

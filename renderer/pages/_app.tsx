@@ -72,7 +72,7 @@ export default function MyApp({ Component, pageProps }) {
             })
         }, 500)
 
-        const errorHandler = function(event) {
+        const errorHandler = (event) => {
             console.error('Unhandled rejection (promise: ', event.promise, ', reason: ', event.reason, ').')
             if(event.reason.status){
                 alert('HTTP Status: ' + event.reason.status + '\nPath:' + event.reason.url + '\n' + event.reason.body)
@@ -99,7 +99,7 @@ export default function MyApp({ Component, pageProps }) {
     if(loggedIn && prevUserState.gamertag !== ''){
         appBody = (
             <React.Fragment>
-                <Header gamertag={ prevUserState.gamertag } level={ parseInt(prevUserState.level) } />
+                <Header gamertag={ prevUserState.gamertag } level={ Number.parseInt(prevUserState.level) } />
 
                 <div id="app_body">
                     <div id="app_body_container">

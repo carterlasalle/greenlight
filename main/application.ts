@@ -30,7 +30,7 @@ export default class Application {
     private _isCi:boolean = (process.env.CI !== undefined)
     private _isMac:boolean = (process.platform === 'darwin')
     private _isWindows:boolean = (process.platform === 'win32')
-    private _isQuitting:boolean = false
+    private _isQuitting = false
 
     public _mainWindow
     public _ipc:Ipc
@@ -41,20 +41,35 @@ export default class Application {
         console.log(__filename+'[constructor()] Starting Greenlight v'+pkg.version)
         this._log = Debug('greenlight')
 
-        ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiIgnoreDriverChecks,VaapiVideoDecoder,PlatformHEVCDecoderSupport,CanvasOopRasterization')
-        // ElectronApp.commandLine.appendSwitch('disable-features', 'UseChromeOSDirectVideoDecoder');
-        ElectronApp.commandLine.appendSwitch('enable-gpu-rasterization')
-        ElectronApp.commandLine.appendSwitch('enable-oop-rasterization')
-        ElectronApp.commandLine.appendSwitch('accelerated-video-decode')
-        ElectronApp.commandLine.appendSwitch('ozone-platform-hint', 'x11')
-        ElectronApp.commandLine.appendSwitch('ignore-gpu-blocklist')
-        // ElectronApp.commandLine.appendSwitch('enable-zero-copy');
+        // Platform-specific optimizations for GPU acceleration
+        if (process.platform === 'darwin') {
+            // macOS-specific flags optimized for Apple Silicon
+            ElectronApp.commandLine.appendSwitch('enable-features', 'MetalVideoDecoder,CanvasOopRasterization')
+            ElectronApp.commandLine.appendSwitch('use-metal', 'true') 
+            ElectronApp.commandLine.appendSwitch('enable-gpu-rasterization')
+            ElectronApp.commandLine.appendSwitch('enable-oop-rasterization')
+            ElectronApp.commandLine.appendSwitch('accelerated-video-decode')
+            ElectronApp.commandLine.appendSwitch('ignore-gpu-blocklist')
+        } else if (process.platform === 'linux') {
+            // Linux-specific flags
+            ElectronApp.commandLine.appendSwitch('enable-features', 'VaapiIgnoreDriverChecks,VaapiVideoDecoder,PlatformHEVCDecoderSupport,CanvasOopRasterization')
+            ElectronApp.commandLine.appendSwitch('enable-gpu-rasterization')
+            ElectronApp.commandLine.appendSwitch('enable-oop-rasterization')
+            ElectronApp.commandLine.appendSwitch('accelerated-video-decode')
+            ElectronApp.commandLine.appendSwitch('ozone-platform-hint', 'x11')
+            ElectronApp.commandLine.appendSwitch('ignore-gpu-blocklist')
+        } else {
+            // Windows-specific flags
+            ElectronApp.commandLine.appendSwitch('enable-features', 'D3D11VideoDecoder,CanvasOopRasterization,PlatformHEVCDecoderSupport')
+            ElectronApp.commandLine.appendSwitch('enable-gpu-rasterization')
+            ElectronApp.commandLine.appendSwitch('enable-oop-rasterization')
+            ElectronApp.commandLine.appendSwitch('accelerated-video-decode')
+            ElectronApp.commandLine.appendSwitch('ignore-gpu-blocklist')
+        }
 
         this.readStartupFlags()
         this.loadApplicationDefaults()
 
-        // ElectronApp.removeAsDefaultProtocolClient('ms-xal-public-beta-000000004c20a908')
-        
         this._ipc = new Ipc(this)
         this._authentication = new Authentication(this)
 

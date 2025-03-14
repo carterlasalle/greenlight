@@ -1,9 +1,9 @@
-import Application from './application'
+import type Application from './application'
 import express from 'express'
 import expressWS from 'express-ws'
 import expressProxy from 'express-http-proxy'
 import path from 'path'
-import Ipc from './ipc'
+import type Ipc from './ipc'
 import { defaultSettings } from '../renderer/context/userContext.defaults'
 
 export default class WebUI {
@@ -29,7 +29,7 @@ export default class WebUI {
         }
     }
 
-    startServer(port:number = 3000){
+    startServer(port = 3000){
         this._application.log('webui', 'Starting webserver...')
         this._express = express()
         this._ws = expressWS(this._express)

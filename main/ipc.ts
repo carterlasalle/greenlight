@@ -1,4 +1,4 @@
-import Application from './application'
+import type Application from './application'
 import IpcConsoles from './ipc/consoles'
 import IpcStreaming from './ipc/streaming'
 import IpcxCloud from './ipc/xcloud'

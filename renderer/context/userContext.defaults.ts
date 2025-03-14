@@ -39,6 +39,12 @@ export const defaultSettings = {
     video_enabled: true,
     audio_enabled: true,
 
+    // Mac-specific optimizations
+    mac_optimizations: true,
+    mac_jitter_buffer_minimum: 100, // 100ms - lower than default
+    mac_jitter_buffer_target: 200,  // 200ms - lower than default
+    mac_video_profile: '4d',        // High profile for better quality
+
     // WebUI
     webui_autostart: false,
     webui_port: 9003,

@@ -1,7 +1,7 @@
 import { session, dialog } from 'electron'
 import { createWindow } from './helpers'
-import Application from './application'
-import { Xal, TokenStore } from 'xal-node'
+import type Application from './application'
+import { Xal, type TokenStore } from 'xal-node'
 import AuthTokenStore from './helpers/tokenstore'
 
 
@@ -14,9 +14,9 @@ export default class Authentication {
     _authWindow
     _authCallback
 
-    _isAuthenticating:boolean = false
-    _isAuthenticated:boolean = false
-    _appLevel:number = 0
+    _isAuthenticating = false
+    _isAuthenticated = false
+    _appLevel = 0
 
     constructor(application:Application){
         this._application = application

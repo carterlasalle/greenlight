@@ -1,10 +1,16 @@
 import React from 'react'
 import Button from './button'
-import xPlayer from 'xbox-xcloud-player'
+import type xPlayer from 'xbox-xcloud-player'
 import Loader from './loader'
 import Card from './card'
 import uPlot from 'uplot'
 import Ipc from '../../lib/ipc'
+
+// Define interface for buffer parameters
+interface BufferParams {
+    jitterBufferMinimumDelay: number;
+    jitterBufferTargetDelay: number;
+}
 
 interface StreamComponentProps {
   onDisconnect?: () => void;
@@ -22,13 +28,59 @@ function StreamComponent({
         return performance.now() / 1000.0
     }
 
+    // This function is now called from the Stream component
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    function optimizeWebRTCSettings(player) {
+        // Get RTCPeerConnection to adjust buffer settings
+        if (player && player._webrtcClient && player._webrtcClient._peerConnection) {
+            const pc = player._webrtcClient._peerConnection
+            
+            // Set optimal jitter buffer delays based on platform
+            try {
+                // Reduce jitter buffer delay to improve responsiveness
+                const params: BufferParams = {
+                    jitterBufferMinimumDelay: 0.2, // Default 200ms minimum delay
+                    jitterBufferTargetDelay: 0.3  // Default 300ms target delay
+                }
+                
+                if (navigator.userAgent.includes('Mac')) {
+                    // Optimized for macOS, especially M1/M2
+                    params.jitterBufferMinimumDelay = 0.1 // 100ms minimum delay
+                    params.jitterBufferTargetDelay = 0.2 // 200ms target delay
+                }
+                
+                // Apply settings to each receiver
+                pc.getReceivers().forEach(receiver => {
+                    if (receiver.track.kind === 'video' && typeof receiver.jitterBufferDelayHint !== 'undefined') {
+                        console.log('Setting jitter buffer delay hint to:', params.jitterBufferTargetDelay)
+                        receiver.jitterBufferDelayHint = params.jitterBufferTargetDelay
+                    }
+                    
+                    // If parameters can be modified, set them directly
+                    if (receiver.setParameters && receiver.getParameters) {
+                        const parameters = receiver.getParameters()
+                        if (parameters.jitterBufferMinimumDelay !== undefined) {
+                            parameters.jitterBufferMinimumDelay = params.jitterBufferMinimumDelay
+                            parameters.jitterBufferTargetDelay = params.jitterBufferTargetDelay
+                            receiver.setParameters(parameters)
+                        }
+                    }
+                })
+                
+                console.log('WebRTC optimization complete')
+            } catch (error) {
+                console.error('Error optimizing WebRTC parameters:', error)
+            }
+        }
+    }
+
     let lastMovement = 0
-    // let gamebarElement = document.getElementById('component_streamcomponent_gamebar')
     let debugElement = document.getElementById('component_streamcomponent_debug')
     let webRtcStatsInterval
 
     const [micStatus, setMicStatus] = React.useState(false)
-    const [waitingSeconds, setWaitingSeconds] = React.useState(0) // eslint-disable-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [waitingSeconds, setWaitingSeconds] = React.useState(0)
 
     let jitterData = [new Float32Array([performance_now_seconds()]), new Float32Array([0.0])]
     let droppedData = [new Float32Array([performance_now_seconds()]), new Float32Array([0.0]), new Float32Array([0.0])]
@@ -47,22 +99,10 @@ function StreamComponent({
     }
 
     React.useEffect(() => {
-
         Ipc.onAction('streaming', 'onQueue', (event, waitingTimes) => {
             console.log('Waiting times:', waitingTimes)
             drawWaitingTimes(waitingTimes.estimatedTotalWaitTimeInSeconds)
         })
-
-        // ipcRenderer.on('xcloud', (event, args) => {
-        //   console.log('GOT EVENT:', event, args)
-
-        //   if(args.type === 'waitingtimes'){
-        //     // Render countdown
-        //     console.log('Seconds waiting time:', args.data.estimatedTotalWaitTimeInSeconds)
-        //     // setWaitingTimes(args.data)
-        //     drawWaitingTimes(args.data.estimatedTotalWaitTimeInSeconds)
-        //   }
-        // })
 
         const jitterUplot = new uPlot({
             title: 'Jitter (ms)',
@@ -185,8 +225,6 @@ function StreamComponent({
                             }
                         }
                     })
-
-                    // document.querySelector('div#component_streamcomponent_debug_text').innerHTML = statsOutput;
                 })
             }
         }, 33)
@@ -226,6 +264,18 @@ function StreamComponent({
         }
         window.addEventListener('keypress', keyboardPressEvent)
 
+        // Apply initial optimizations for this component
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+        const isM1 = isMac && navigator.userAgent.indexOf('AppleWebKit') >= 0
+        
+        if (isMac && isM1) {
+            // Attempt to optimize debug display for better performance
+            const debugElement = document.getElementById('component_streamcomponent_debug')
+            if (debugElement) {
+                debugElement.className = 'hidden'
+            }
+        }
+
         // cleanup this component
         return () => {
             window.removeEventListener('mousemove', mouseEvent)
@@ -233,17 +283,17 @@ function StreamComponent({
             window.removeEventListener('keypress', keyboardPressEvent)
             clearInterval(mouseInterval)
 
-            // ipcRenderer.removeAllListeners('xcloud');
-
             if(webRtcStatsInterval){
                 clearInterval(webRtcStatsInterval) 
             }
-            (document.getElementById('component_streamcomponent_debug_webrtc_jitter') !== null) ? document.getElementById('component_streamcomponent_debug_webrtc_jitter').innerHTML = '' : false;
-            (document.getElementById('component_streamcomponent_debug_webrtc_dropped') !== null) ? document.getElementById('component_streamcomponent_debug_webrtc_dropped').innerHTML = '' : false
+            if(document.getElementById('component_streamcomponent_debug_webrtc_jitter') !== null) {
+                document.getElementById('component_streamcomponent_debug_webrtc_jitter').innerHTML = ''
+            }
+            if(document.getElementById('component_streamcomponent_debug_webrtc_dropped') !== null) {
+                document.getElementById('component_streamcomponent_debug_webrtc_dropped').innerHTML = ''
+            }
         }
     }, [])
-
-
 
     function toggleMic(){
         if(xPlayer.getChannelProcessor('chat').isPaused === true){
@@ -257,7 +307,6 @@ function StreamComponent({
 
     function streamDisconnect(){
         document.getElementById('streamComponentHolder').innerHTML = ''
-
         xPlayer.close()
     }
 

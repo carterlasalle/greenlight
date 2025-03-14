@@ -1,4 +1,4 @@
-import Application from '../application'
+import type Application from '../application'
 import HTTP from './http'
 import Store from 'electron-store'
 

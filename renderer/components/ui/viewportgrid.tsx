@@ -114,7 +114,7 @@ function ViewportGrid({
     }
     
     function gotoPage(page){
-        setPage(parseInt(page)-1)
+        setPage(Number.parseInt(page)-1)
         window.scrollTo({ top: 0 })
     }
 

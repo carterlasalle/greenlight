@@ -1,4 +1,4 @@
-import { Preload } from '../main/preload'
+import type { Preload } from '../main/preload'
 
 /* eslint-disable */
 declare global {

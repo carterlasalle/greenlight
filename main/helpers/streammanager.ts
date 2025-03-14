@@ -1,5 +1,6 @@
-import Application from '../application'
-import xCloudApi, { playResult } from './xcloudapi'
+import type Application from '../application'
+import type xCloudApi from './xcloudapi'
+import type { playResult } from './xcloudapi'
 
 interface streamSession {
     id: string;
@@ -37,10 +38,67 @@ export default class StreamManager {
         return this._sessions[sessionId]
     }
 
-    startStream(type:string|'home'|'cloud', target){
+    startStream(type:string|'home'|'cloud', target:string){
         return new Promise((resolve, reject) => {
-            this.getApi(type).startStream(target).then((playResult:playResult) => {
-            // this._application._xCloudApi.startStream(type, target).then((playResult) => {
+            const isAppleSilicon = process.platform === 'darwin' && 
+                                 process.arch === 'arm64';
+    
+            const deviceInfo = JSON.stringify({
+                'appInfo': {
+                    'env': {
+                        'clientAppId': 'Microsoft.GamingApp',
+                        'clientAppType': 'native',
+                        'clientAppVersion': '2203.1001.4.0',
+                        'clientSdkVersion': '8.5.2',
+                        'httpEnvironment': 'prod',
+                        'sdkInstallId': '',
+                    },
+                },
+                'dev': {
+                    'hw': {
+                        'make': isAppleSilicon ? 'Apple' : 'Microsoft',
+                        'model': isAppleSilicon ? 'MacBook Pro M1' : 'Surface Pro',
+                        'sdktype': 'native',
+                    },
+                    'os': {
+                        'name': process.platform === 'darwin' ? 'macOS' : 
+                               (process.platform === 'win32' ? 'Windows 11' : 'Linux'),
+                        'ver': isAppleSilicon ? '13.0' : '22631.2715',
+                        'platform': 'desktop',
+                    },
+                    'displayInfo': {
+                        'dimensions': {
+                            'widthInPixels': 1920,
+                            'heightInPixels': 1080,
+                        },
+                        'pixelDensity': {
+                            'dpiX': 1,
+                            'dpiY': 1,
+                        },
+                    },
+                },
+            });
+
+            const postData = {
+                'titleId': (type === 'cloud') ? target : '',
+                'systemUpdateGroup': '',
+                'clientSessionId': '',
+                'settings': {
+                    'nanoVersion': 'V3;WebrtcTransport.dll',
+                    'enableTextToSpeech': false,
+                    'highContrast': 0,
+                    'locale': this._application._store.get('preferred_game_language', 'en-US'),
+                    'useIceConnection': false,
+                    'timezoneOffsetMinutes': 120,
+                    'sdkType': 'web',
+                    'osName': process.platform === 'darwin' ? 'macos' : 
+                             (process.platform === 'win32' ? 'windows' : 'linux'),
+                },
+                'serverId': (type === 'home') ? target : '',
+                'fallbackRegionNames': [],
+            }
+
+            this.getApi(type).startStream(target, deviceInfo).then((playResult:playResult) => {
                 console.log('Streammanager - startStream:', playResult)
 
                 const sessionId = playResult.sessionPath.split('/')[3]

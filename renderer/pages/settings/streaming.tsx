@@ -19,7 +19,7 @@ function SettingsStreaming() {
         console.log('Set xCloud bitrate to:', e.target.value)
         setSettings({
             ...settings,
-            xcloud_bitrate: parseInt(e.target.value),
+            xcloud_bitrate: Number.parseInt(e.target.value),
         })
     }
 
@@ -27,7 +27,7 @@ function SettingsStreaming() {
         console.log('Set xHome bitrate to:', e.target.value)
         setSettings({
             ...settings,
-            xhome_bitrate: parseInt(e.target.value),
+            xhome_bitrate: Number.parseInt(e.target.value),
         })
     }
 
